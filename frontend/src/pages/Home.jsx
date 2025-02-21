@@ -1,27 +1,35 @@
-import { Navigate } from "react-router-dom";
 import Navbar from "../components/navbar/Navbar";
 import { useTaskContext } from "../hooks/useTaskContext";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import { Column } from "../components/Column";
-import { useEffect, useState } from "react";
-import { ClipboardList } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ClipboardList, Loader2 } from "lucide-react";
 import { useAxiosPublic } from "../hooks/useAxiosPublic";
 import useAllTasks from "../hooks/useAllTask";
 import io from "socket.io-client";
 
 const Home = () => {
-  const socket = io("http://localhost:5000");
+  const socket = useMemo(() => io("http://localhost:5000"), []);
 
   const { user } = useTaskContext();
   const axiosPublic = useAxiosPublic();
   const [allTasks, isPending, refetch] = useAllTasks();
   const [tasks, setTasks] = useState([]);
+  const [flag, setFlag] = useState(false);
+
+  console.log("allTasks", allTasks);
 
   useEffect(() => {
-    if (allTasks) {
-      setTasks(allTasks);
-    }
-  }, [allTasks]);
+    socket.emit("getTasks");
+
+    const subscribe = socket.on("taskUpdated", (tasks) => {
+      setTasks(tasks);
+    });
+
+    return () => {
+      subscribe.off("taskUpdated");
+    };
+  }, [flag, allTasks]);
 
   if (isPending) return <div>Loading...</div>;
 
@@ -78,6 +86,8 @@ const Home = () => {
         (task) => filteredTasks.find((t) => t._id === task._id) || task
       );
 
+      console.log("updatedTasks", updatedTasks);
+
       setTasks(updatedTasks);
       socket.emit("updateTaskOrder", updatedTasks);
     } else {
@@ -99,25 +109,42 @@ const Home = () => {
         taskId: movedTask._id,
         category: destination.droppableId,
       });
+
+      axiosPublic
+        .patch(`/update-task-category/${movedTask._id}`, {
+          category: destination.droppableId,
+        })
+        .then((res) => {
+          console.log(res);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
     }
   };
 
   const handleAddTask = async (category) => {
     const newTask = {
       _id: Date.now(),
+      userMail: user.email,
       title: "New Task",
       description: "Task description",
       category,
     };
 
-    setTasks((prevTasks) => [...prevTasks, newTask]);
+    socket.emit("addTask", newTask);
+    setFlag(!flag);
 
-    try {
-      await axiosPublic.post("/add-task", newTask);
-      refetch(); // Refetch all tasks
-    } catch (err) {
-      console.error("Failed to add task:", err);
-    }
+    axiosPublic
+      .post("/add-task", newTask)
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+
+    setTasks((prevTasks) => [...prevTasks, newTask]);
   };
 
   const handleEditTask = async (updatedTask) => {
@@ -125,26 +152,40 @@ const Home = () => {
       prevTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
     );
 
-    try {
-      await axiosPublic.put(`/update-task/${updatedTask._id}`, updatedTask);
-      refetch();
-    } catch (err) {
-      console.error("Failed to update task:", err);
-    }
+    //console.log("updatedTask", updatedTask);
+    socket.emit("editTask", updatedTask);
+    setFlag(!flag);
+
+    axiosPublic
+      .put(`/update-task/${updatedTask._id}`, updatedTask)
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
   };
 
   const handleDeleteTask = async (taskId) => {
     setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
 
-    try {
-      await axiosPublic.delete(`/delete-task/${taskId}`);
-      refetch();
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-    }
+    //console.log("taskId", taskId);
+    socket.emit("deleteTask", taskId);
+    setFlag(!flag);
+
+    axiosPublic
+      .delete(`/delete-task/${taskId}`)
+      .then((res) => {
+        console.log(res);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
   };
 
-  if (!user) return <Navigate to="/" />;
+  if (!user) {
+    return <Loader2 />;
+  }
 
   return (
     <div>

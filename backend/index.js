@@ -55,6 +55,29 @@ async function run() {
     io.on("connection", (socket) => {
       console.log("🔗 User connected:", socket.id);
 
+      //add  a new task
+
+      socket.on(
+        "addTask",
+        async ({ userMail, title, description, category }) => {
+          try {
+            const task = {
+              category,
+              title,
+              description,
+              createdAt: new Date(),
+              userMail,
+            };
+            await taskCollection.insertOne(task);
+            const tasks = await taskCollection.find().toArray();
+            socket.emit("taskUpdated", tasks);
+          } catch (error) {
+            console.error("❌ Failed to add task:", error);
+            socket.emit("error", "Failed to add task");
+          }
+        }
+      );
+
       // Send all tasks to the newly connected client
       socket.on("getTasks", async () => {
         try {
@@ -66,22 +89,22 @@ async function run() {
         }
       });
 
-      // Handle real-time task reordering
-      socket.on("updateTaskOrder", async (updatedTasks) => {
+      //update task details
+      socket.on("editTask", async ({ _id, title, description }) => {
         try {
-          await Promise.all(
-            updatedTasks.map((task) =>
-              taskCollection.updateOne(
-                { _id: new ObjectId(task._id) },
-                { $set: { category: task.category } }
-              )
-            )
+          if (!ObjectId.isValid(_id)) {
+            return socket.emit("error", "Invalid Task ID");
+          }
+
+          await taskCollection.updateOne(
+            { _id: new ObjectId(_id) },
+            { $set: { title, description } }
           );
           const tasks = await taskCollection.find().toArray();
           io.emit("taskUpdated", tasks);
         } catch (error) {
-          console.error("❌ Task order update failed:", error);
-          socket.emit("error", "Task order update failed");
+          console.error("❌ Task update failed:", error);
+          socket.emit("error", "Task update failed");
         }
       });
 
@@ -105,6 +128,8 @@ async function run() {
 
       // Handle task deletion
       socket.on("deleteTask", async (taskId) => {
+        console.log("taskId", taskId);
+
         try {
           if (!ObjectId.isValid(taskId)) {
             return socket.emit("error", "Invalid Task ID");
@@ -211,6 +236,20 @@ async function run() {
       } catch (error) {
         res.status(500).send({ message: "Error fetching tasks", error });
       }
+    });
+
+    //update task category
+
+    app.patch("/update-task-category/:id", verifyToken, async (req, res) => {
+      const taskId = req.params.id;
+      const { category } = req.body;
+
+      await taskCollection.updateOne(
+        { _id: new ObjectId(taskId) },
+        { $set: { category: category } }
+      );
+
+      res.send({ success: true });
     });
 
     //update task
