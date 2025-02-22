@@ -15,7 +15,9 @@ A modern, drag-and-drop task management application built using React and Tailwi
 
 ## 🔗 Live Demo
 
-[https://task-management-by-mithu9.netlify.app/](#) (Replace with actual link)
+ <p>
+ <a href="https://task-management-by-mithu9.netlify.app/">[Live_Link]</a>
+ </p>
 
 ## 🛠 Technologies Used
 
