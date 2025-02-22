@@ -9,14 +9,12 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { auth } from "../firebase/firebase.config";
-import { useAxiosPublic } from "../hooks/useAxiosPublic";
 
 const TaskContext = createContext();
 
 const TaskContextProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const axiosPublic = useAxiosPublic();
 
   //Authenticating the user
   const googleProvider = new GoogleAuthProvider();
@@ -47,33 +45,12 @@ const TaskContextProvider = ({ children }) => {
   //get Current User
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user?.email) {
-        const authUser = { email: user.email };
-        axiosPublic
-          .post("/jwt", authUser, {
-            withCredentials: true,
-          })
-          .then((res) => {
-            console.log(res.data);
-            setUser(user);
-            setLoading(false);
-          });
+      if (user) {
+        setUser(user);
+        setLoading(false);
       } else {
-        axiosPublic
-          .post(
-            "/logout",
-            {},
-            {
-              withCredentials: true,
-            }
-          )
-          .then((res) => {
-            //console.log(res.data);
-            if (res) {
-              setUser(null);
-              setLoading(false);
-            }
-          });
+        setUser(null);
+        setLoading(false);
       }
     });
 

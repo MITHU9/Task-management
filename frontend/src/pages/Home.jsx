@@ -2,36 +2,28 @@ import Navbar from "../components/navbar/Navbar";
 import { useTaskContext } from "../hooks/useTaskContext";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import { Column } from "../components/Column";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { useAxiosPublic } from "../hooks/useAxiosPublic";
-import useAllTasks from "../hooks/useAllTask";
-import io from "socket.io-client";
+import { Navigate } from "react-router-dom";
 
 const Home = () => {
-  const socket = useMemo(() => io("http://localhost:5000"), []);
-
   const { user } = useTaskContext();
   const axiosPublic = useAxiosPublic();
-  const [allTasks, isPending, refetch] = useAllTasks();
   const [tasks, setTasks] = useState([]);
   const [flag, setFlag] = useState(false);
 
-  console.log("allTasks", allTasks);
-
   useEffect(() => {
-    socket.emit("getTasks");
-
-    const subscribe = socket.on("taskUpdated", (tasks) => {
-      setTasks(tasks);
-    });
-
-    return () => {
-      subscribe.off("taskUpdated");
-    };
-  }, [flag, allTasks]);
-
-  if (isPending) return <div>Loading...</div>;
+    if (user) {
+      axiosPublic
+        .get(`/all-tasks/${user?.email}`)
+        .then((res) => {
+          console.log(res);
+          setTasks(res.data);
+        })
+        .catch((err) => console.log(err));
+    }
+  }, [user?.email, flag]);
 
   const onDragEnd = async (result) => {
     const { source, destination } = result;
@@ -86,10 +78,10 @@ const Home = () => {
         (task) => filteredTasks.find((t) => t._id === task._id) || task
       );
 
-      console.log("updatedTasks", updatedTasks);
+      //console.log("updatedTasks", updatedTasks);
 
-      setTasks(updatedTasks);
-      socket.emit("updateTaskOrder", updatedTasks);
+      // setTasks(updatedTasks);
+      // socket.emit("updateTaskOrder", updatedTasks);
     } else {
       // Moving task between different columns
       const sourceClone = [...sourceTasks];
@@ -105,10 +97,10 @@ const Home = () => {
         prev.map((task) => (task._id === movedTask._id ? updatedTask : task))
       );
 
-      socket.emit("updateTask", {
-        taskId: movedTask._id,
-        category: destination.droppableId,
-      });
+      // socket.emit("updateTask", {
+      //   taskId: movedTask._id,
+      //   category: destination.droppableId,
+      // });
 
       axiosPublic
         .patch(`/update-task-category/${movedTask._id}`, {
@@ -116,6 +108,7 @@ const Home = () => {
         })
         .then((res) => {
           console.log(res);
+          setFlag(!flag);
         })
         .catch((err) => {
           console.log(err);
@@ -126,19 +119,17 @@ const Home = () => {
   const handleAddTask = async (category) => {
     const newTask = {
       _id: Date.now(),
-      userMail: user.email,
+      userMail: user?.email,
       title: "New Task",
       description: "Task description",
       category,
     };
 
-    socket.emit("addTask", newTask);
-    setFlag(!flag);
-
     axiosPublic
       .post("/add-task", newTask)
       .then((res) => {
         console.log(res);
+        setFlag(!flag);
       })
       .catch((err) => {
         console.log(err);
@@ -149,17 +140,16 @@ const Home = () => {
 
   const handleEditTask = async (updatedTask) => {
     setTasks((prevTasks) =>
-      prevTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+      prevTasks.map((task) =>
+        task._id === updatedTask._id ? updatedTask : task
+      )
     );
-
-    //console.log("updatedTask", updatedTask);
-    socket.emit("editTask", updatedTask);
-    setFlag(!flag);
 
     axiosPublic
       .put(`/update-task/${updatedTask._id}`, updatedTask)
       .then((res) => {
         console.log(res);
+        setFlag(!flag);
       })
       .catch((err) => {
         console.log(err);
@@ -167,25 +157,33 @@ const Home = () => {
   };
 
   const handleDeleteTask = async (taskId) => {
-    setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
+    setTasks((prevTasks) => prevTasks.filter((task) => task._id !== taskId));
 
     //console.log("taskId", taskId);
-    socket.emit("deleteTask", taskId);
-    setFlag(!flag);
+    // socket.emit("deleteTask", taskId);
+    // setFlag(!flag);
 
     axiosPublic
       .delete(`/delete-task/${taskId}`)
       .then((res) => {
         console.log(res);
+        setFlag(!flag);
       })
       .catch((err) => {
         console.log(err);
       });
   };
 
-  if (!user) {
-    return <Loader2 />;
-  }
+  if (!user) return <Navigate to="/" />;
+
+  if (!tasks || !user)
+    return (
+      <div>
+        <Loader2 className="w-10 h-10 text-blue-500" />
+      </div>
+    );
+
+  //console.log("tasks", tasks);
 
   return (
     <div>
@@ -204,19 +202,20 @@ const Home = () => {
 
         <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
           <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex gap-6 overflow-x-auto pb-4">
+            <div className="flex flex-wrap lg:flex-nowrap gap-6 overflow-x-auto pb-4">
               {["Todo", "InProgress", "Done"].map((category) => (
                 <Droppable key={category} droppableId={category}>
                   {(provided) => (
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className="w-1/3 p-4 bg-gray-200 rounded-md"
+                      className="w-full md:w-1/3 p-4 bg-gray-200 rounded-md"
                     >
                       <Column
+                        key={category}
                         category={category}
                         onAddTask={() => handleAddTask(category)}
-                        tasks={tasks.filter(
+                        tasks={tasks?.filter(
                           (task) => task.category === category
                         )}
                         onEdit={handleEditTask}

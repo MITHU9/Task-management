@@ -8,7 +8,7 @@ const categoryColors = {
 };
 
 export function Column({ category, tasks, onAddTask, onDelete, onEdit }) {
-  console.log(tasks);
+  // console.log(tasks, category);
 
   return (
     <div className=" rounded-lg p-4">
@@ -26,7 +26,7 @@ export function Column({ category, tasks, onAddTask, onDelete, onEdit }) {
 
       {tasks?.map((task, index) => (
         <TaskCard
-          key={task.id}
+          key={task._id}
           task={task}
           index={index}
           onEdit={onEdit}

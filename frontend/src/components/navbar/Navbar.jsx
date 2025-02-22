@@ -9,7 +9,7 @@ const Navbar = () => {
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center space-x-3">
           {/* <img src="/logo.png" alt="Logo" className="h-10" /> */}
-          <span className="text-xl font-semibold text-gray-800">MyWebsite</span>
+          <span className="text-xl font-bold text-gray-800">TaskMate</span>
         </div>
 
         <Link

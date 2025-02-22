@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAxiosPublic } from "./useAxiosPublic";
 
-const useAllTasks = () => {
+const useAllTasks = ({ email }) => {
   const axiosPublic = useAxiosPublic();
 
-  //console.log("currentPage", currentPage);
+  console.log("email", email);
 
   const {
     isPending,
@@ -12,7 +12,8 @@ const useAllTasks = () => {
     refetch,
   } = useQuery({
     queryKey: ["all-Tasks"],
-    queryFn: () => axiosPublic.get(`/all-tasks`).then((res) => res.data),
+    queryFn: () =>
+      axiosPublic.get(`/all-tasks/${email}`).then((res) => res.data),
   });
 
   return [allTasks, isPending, refetch];
